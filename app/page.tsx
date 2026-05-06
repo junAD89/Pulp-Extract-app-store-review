@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Sparkles, ArrowRight, Zap, Database, BarChart3, CheckCircle2, XCircle, Lightbulb } from "lucide-react";
-import { analyzeAppReviews } from "./actions";
+import { analyzeApp } from "./actions";
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -20,50 +20,8 @@ export default function Home() {
     setAnalysisData(null);
 
     try {
-      // 1. Extraire l'ID depuis le lien
-      const match = url.match(/id(\d+)/);
-      if (!match) throw new Error("Lien invalide. Assurez-vous d'utiliser un lien App Store valide.");
-      const appId = match[1];
-
-      // 2. Fetch les metadata de l'app
-      const metaRes = await fetch(
-        `https://itunes.apple.com/lookup?id=${appId}`
-      );
-      const metaData = await metaRes.json();
-      const appInfo = metaData?.results?.[0];
-
-      if (!appInfo) throw new Error("Impossible de trouver les informations de l'application.");
-
-      // 3. Fetch les reviews iTunes API (On en prend 100 pour Gemini)
-      let allReviews: any[] = [];
-      for (let page = 1; page <= 2; page++) {
-        const reviewsRes = await fetch(
-          `https://itunes.apple.com/us/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`
-        );
-        const reviewsData = await reviewsRes.json();
-        const pageEntries = reviewsData?.feed?.entry ?? [];
-        const actualReviews = page === 1 ? pageEntries.slice(1) : pageEntries;
-        allReviews = [...allReviews, ...actualReviews];
-        if (pageEntries.length < 50) break;
-      }
-
-      // 4. Formater les reviews pour Gemini
-      const reviewsText = allReviews
-        .map((r: any) => `[${r["im:rating"]?.label}★] ${r.title?.label}: ${r.content?.label}`)
-        .join("\n");
-
-      // 5. Appel à Gemini via Server Action
-      const aiAnalysis = await analyzeAppReviews(reviewsText, appInfo.trackName);
-
-      // Set the real data
-      setAnalysisData({
-        name: appInfo.trackName,
-        developer: appInfo.artistName,
-        icon: appInfo.artworkUrl100,
-        rating: appInfo.averageUserRating,
-        reviewsCount: appInfo.userRatingCount,
-        ...aiAnalysis // merge Gemini results (topInsight, pros, cons, sentimentScore, recommendation)
-      });
+      const result = await analyzeApp(url);
+      setAnalysisData(result);
     } catch (err: any) {
       setError(err.message || "Une erreur est survenue lors de l'analyse.");
     } finally {
