@@ -12,7 +12,7 @@ function extractJSON(text: string) {
   return match[0];
 }
 
-export async function analyzeApp(url: string, country: string = "us") {
+export async function analyzeApp(url: string, country: string = "us", page: number = 1) {
   if (!url) throw new Error("URL manquante");
 
   try {
@@ -28,24 +28,17 @@ export async function analyzeApp(url: string, country: string = "us") {
 
     if (!appInfo) throw new Error("Impossible de trouver les informations de l'application.");
 
-    // 3. Récupération des Reviews (100 dernières)
-    let allReviews: any[] = [];
-    for (let page = 1; page <= 2; page++) {
-      const reviewsRes = await fetch(
-        `https://itunes.apple.com/${country}/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`
-      );
-      const reviewsData = await reviewsRes.json();
-      const pageEntries = reviewsData?.feed?.entry ?? [];
-      const actualReviews = page === 1 ? pageEntries.slice(1) : pageEntries;
-      allReviews = [...allReviews, ...actualReviews];
-      if (pageEntries.length < 50) break;
-    }
+    // 3. Récupération des Reviews (Batch de 50 spécifique)
+    const reviewsRes = await fetch(
+      `https://itunes.apple.com/${country}/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`
+    );
+    const reviewsData = await reviewsRes.json();
+    const pageEntries = reviewsData?.feed?.entry ?? [];
+    
+    // Le premier élément du flux RSS est souvent l'info de l'app, pas une review
+    const actualReviews = page === 1 ? pageEntries.slice(1) : pageEntries;
 
-    const reviewsText = allReviews
-      .map((r: any) => `[${r["im:rating"]?.label}★] ${r.title?.label}: ${r.content?.label}`)
-      .join("\n");
-
-    const reviews = allReviews.map((r: any) => ({
+    const reviews = actualReviews.map((r: any) => ({
       id: r.id?.label,
       rating: parseInt(r["im:rating"]?.label || "0"),
       title: r.title?.label,
