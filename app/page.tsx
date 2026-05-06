@@ -4,6 +4,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Sparkles, ArrowRight, Zap, Database, BarChart3, CheckCircle2, XCircle, Lightbulb, Copy, Check, Star } from "lucide-react";
 import { analyzeApp } from "./actions";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -28,6 +30,7 @@ export default function Home() {
   const copyToClipboard = async (text: string, id: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedId(id);
+    toast.success("Review copied!", { theme: "dark", autoClose: 2000 });
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -39,6 +42,7 @@ export default function Home() {
       .join("\n\n");
 
     await navigator.clipboard.writeText(formattedReviews);
+    toast.success(`${analysisData.reviews.length} reviews copied!`, { theme: "dark" });
     setIsCopyingAll(true);
     setTimeout(() => setIsCopyingAll(false), 2000);
   };
@@ -104,26 +108,45 @@ export default function Home() {
     );
   };
 
+  const selectAllPages = () => {
+    if (selectedPages.length === 10) {
+      setSelectedPages([]);
+    } else {
+      setSelectedPages([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    }
+  };
+
   const bulkExport = async () => {
     if (!url || selectedPages.length === 0) return;
     setIsBulkLoading(true);
+    console.log("🚀 Starting Bulk Export for pages:", selectedPages);
 
     try {
       const allResults = await Promise.all(
         selectedPages.map(p => analyzeApp(url, country, p))
       );
+      console.log("✅ All pages fetched. Number of results:", allResults.length);
 
-      const allReviews = allResults.flatMap(res => res.reviews || []);
+      const allReviews = allResults.flatMap(res => {
+        console.log(`📦 Page result reviews count:`, res.reviews?.length);
+        return res.reviews || [];
+      });
+      
+      console.log("📊 Total reviews to format:", allReviews.length);
+
       const formattedReviews = allReviews
         .map((r: any) => `--- \nRating: ${r.rating}/5\nTitle: ${r.title}\nContent: ${r.content}\n---`)
         .join("\n\n");
 
       await navigator.clipboard.writeText(formattedReviews);
+      console.log("📋 Copied to clipboard successfully!");
+      toast.success(`${allReviews.length} reviews exported!`, { theme: "dark" });
       setIsCopyingAll(true);
       setTimeout(() => setIsCopyingAll(false), 2000);
       setShowBulkModal(false);
     } catch (err: any) {
-      setError("Erreur lors de l'exportation massive.");
+      console.error("❌ Bulk Export Error:", err);
+      setError("Erreur lors de l'exportation massive. Vérifiez la console.");
     } finally {
       setIsBulkLoading(false);
     }
@@ -479,7 +502,15 @@ export default function Home() {
               className="relative w-full max-w-md p-8 rounded-3xl glass border-white/10 bg-zinc-900 shadow-2xl"
             >
               <h2 className="text-2xl font-bold text-zinc-100 mb-2">Bulk Export</h2>
-              <p className="text-zinc-500 text-sm mb-8">Select the pages you want to export. Each page contains 50 reviews.</p>
+              <div className="flex items-center justify-between mb-8">
+                <p className="text-zinc-500 text-sm">Select the pages you want to export. Each page contains 50 reviews.</p>
+                <button 
+                  onClick={selectAllPages}
+                  className="text-[10px] font-bold text-orange-500 uppercase tracking-widest hover:text-orange-400 transition-colors"
+                >
+                  {selectedPages.length === 10 ? "Deselect All" : "Select All"}
+                </button>
+              </div>
               
               <div className="grid grid-cols-5 gap-3 mb-8">
                 {[...Array(10)].map((_, i) => {
@@ -528,6 +559,8 @@ export default function Home() {
           </div>
         )}
       </AnimatePresence>
+
+      <ToastContainer position="bottom-right" />
 
       <footer className="mt-auto py-12 text-zinc-600 text-sm">
         &copy; 2026 Pulp. All rights reserved.

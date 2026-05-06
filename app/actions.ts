@@ -27,9 +27,19 @@ export async function analyzeApp(url: string, country: string = "us", page: numb
     );
     const reviewsData = await reviewsRes.json();
     const pageEntries = reviewsData?.feed?.entry ?? [];
+    
+    console.log(`📡 Fetch Page ${page}: Found ${Array.isArray(pageEntries) ? pageEntries.length : "Object"} entries`);
 
     // Le premier élément du flux RSS est souvent l'info de l'app, pas une review
-    const actualReviews = page === 1 ? pageEntries.slice(1) : pageEntries;
+    let actualReviews = [];
+    if (Array.isArray(pageEntries)) {
+      actualReviews = page === 1 ? pageEntries.slice(1) : pageEntries;
+    } else if (typeof pageEntries === "object" && pageEntries !== null) {
+      // Cas où il n'y a qu'une seule review (Apple renvoie un objet au lieu d'un array)
+      actualReviews = [pageEntries];
+    }
+    
+    console.log(`✨ Page ${page}: Processing ${actualReviews.length} actual reviews`);
 
     const reviews = actualReviews.map((r: any) => ({
       id: r.id?.label,
