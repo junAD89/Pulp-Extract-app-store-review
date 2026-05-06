@@ -377,12 +377,19 @@ export default function Home() {
                       {isCopyingAll ? (
                         <>
                           <Check className="w-4 h-4 text-green-500" />
-                          All Copied!
+                          Copied!
                         </>
                       ) : (
                         <>
                           <Copy className="w-4 h-4" />
-                          Copy All ({analysisData.reviews?.length})
+                          {moodFilter === "all" ? "Copy All" : moodFilter === "pain" ? "Copy Pain Points" : "Copy Love Letters"}
+                          ({
+                            analysisData.reviews?.filter((r: any) => {
+                              if (moodFilter === "pain") return r.rating <= 2;
+                              if (moodFilter === "love") return r.rating >= 4;
+                              return true;
+                            }).length
+                          })
                         </>
                       )}
                     </button>
@@ -399,15 +406,29 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => setMoodFilter("pain")}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${moodFilter === "pain" ? "bg-red-500/10 text-red-400 shadow-xl" : "text-zinc-500 hover:text-zinc-300"}`}
+                    className={`group flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${moodFilter === "pain" ? "bg-red-500/10 text-red-400 shadow-xl" : "text-zinc-500 hover:text-zinc-300"}`}
                   >
                     <span>🍋</span> Pain Points
+                    <div 
+                      onClick={(e) => { e.stopPropagation(); copyAllReviews(); }}
+                      className="ml-2 p-1 rounded-md hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Copy Pain Points"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </div>
                   </button>
                   <button
                     onClick={() => setMoodFilter("love")}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${moodFilter === "love" ? "bg-green-500/10 text-green-400 shadow-xl" : "text-zinc-500 hover:text-zinc-300"}`}
+                    className={`group flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${moodFilter === "love" ? "bg-green-500/10 text-green-400 shadow-xl" : "text-zinc-500 hover:text-zinc-300"}`}
                   >
                     <span>🍊</span> Love Letters
+                    <div 
+                      onClick={(e) => { e.stopPropagation(); copyAllReviews(); }}
+                      className="ml-2 p-1 rounded-md hover:bg-green-500/20 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Copy Love Letters"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </div>
                   </button>
                 </div>
 
