@@ -12,7 +12,7 @@ function extractJSON(text: string) {
   return match[0];
 }
 
-export async function analyzeApp(url: string) {
+export async function analyzeApp(url: string, country: string = "us") {
   if (!url) throw new Error("URL manquante");
 
   try {
@@ -32,7 +32,7 @@ export async function analyzeApp(url: string) {
     let allReviews: any[] = [];
     for (let page = 1; page <= 2; page++) {
       const reviewsRes = await fetch(
-        `https://itunes.apple.com/us/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`
+        `https://itunes.apple.com/${country}/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`
       );
       const reviewsData = await reviewsRes.json();
       const pageEntries = reviewsData?.feed?.entry ?? [];

@@ -10,6 +10,13 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [country, setCountry] = useState("us");
+
+  const countries = [
+    { code: "us", label: "🇺🇸 US" },
+    { code: "ca", label: "🇨🇦 CA" },
+    { code: "gb", label: "🇬🇧 UK" },
+  ];
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +27,7 @@ export default function Home() {
     setAnalysisData(null);
 
     try {
-      const result = await analyzeApp(url);
+      const result = await analyzeApp(url, country);
       setAnalysisData(result);
     } catch (err: any) {
       setError(err.message || "Une erreur est survenue lors de l'analyse.");
@@ -88,6 +95,29 @@ export default function Home() {
           Paste any App Store link and let Pulp extract sentiment, feature requests,
           and competitive insights in seconds.
         </motion.p>
+
+        {/* Country Selector */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.25 }}
+          className="flex gap-2 mb-6 p-1 rounded-xl glass bg-white/5"
+        >
+          {countries.map((c) => (
+            <button
+              key={c.code}
+              onClick={() => setCountry(c.code)}
+              className={`
+                px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-300
+                ${country === c.code 
+                  ? "bg-white/10 text-orange-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]" 
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"}
+              `}
+            >
+              {c.label}
+            </button>
+          ))}
+        </motion.div>
 
         {/* Input Area */}
         <motion.form
