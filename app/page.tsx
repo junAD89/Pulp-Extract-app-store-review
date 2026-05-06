@@ -18,6 +18,7 @@ export default function Home() {
   const [isBulkLoading, setIsBulkLoading] = useState(false);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [moodFilter, setMoodFilter] = useState<"all" | "pain" | "love">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isCopyingAll, setIsCopyingAll] = useState(false);
 
@@ -37,12 +38,18 @@ export default function Home() {
   const copyAllReviews = async () => {
     if (!analysisData?.reviews) return;
 
-    const formattedReviews = analysisData.reviews
+    const filtered = analysisData.reviews.filter((r: any) => {
+      if (moodFilter === "pain") return r.rating <= 2;
+      if (moodFilter === "love") return r.rating >= 4;
+      return true;
+    });
+
+    const formattedReviews = filtered
       .map((r: any) => `--- \nRating: ${r.rating}/5\nTitle: ${r.title}\nContent: ${r.content}\n---`)
       .join("\n\n");
 
     await navigator.clipboard.writeText(formattedReviews);
-    toast.success(`${analysisData.reviews.length} reviews copied!`, { theme: "dark" });
+    toast.success(`${filtered.length} reviews copied!`, { theme: "dark" });
     setIsCopyingAll(true);
     setTimeout(() => setIsCopyingAll(false), 2000);
   };
@@ -132,15 +139,21 @@ export default function Home() {
         return res.reviews || [];
       });
       
-      console.log("📊 Total reviews to format:", allReviews.length);
+      const filtered = allReviews.filter((r: any) => {
+        if (moodFilter === "pain") return r.rating <= 2;
+        if (moodFilter === "love") return r.rating >= 4;
+        return true;
+      });
 
-      const formattedReviews = allReviews
+      console.log("📊 Total reviews to format:", filtered.length);
+
+      const formattedReviews = filtered
         .map((r: any) => `--- \nRating: ${r.rating}/5\nTitle: ${r.title}\nContent: ${r.content}\n---`)
         .join("\n\n");
 
       await navigator.clipboard.writeText(formattedReviews);
       console.log("📋 Copied to clipboard successfully!");
-      toast.success(`${allReviews.length} reviews exported!`, { theme: "dark" });
+      toast.success(`${filtered.length} reviews exported!`, { theme: "dark" });
       setIsCopyingAll(true);
       setTimeout(() => setIsCopyingAll(false), 2000);
       setShowBulkModal(false);
@@ -376,51 +389,79 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Mood Filter Bar */}
+                <div className="flex items-center gap-3 mb-8 p-1 rounded-2xl glass bg-white/[0.02] w-fit">
+                  <button
+                    onClick={() => setMoodFilter("all")}
+                    className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${moodFilter === "all" ? "bg-white/10 text-white shadow-xl" : "text-zinc-500 hover:text-zinc-300"}`}
+                  >
+                    All Reviews
+                  </button>
+                  <button
+                    onClick={() => setMoodFilter("pain")}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${moodFilter === "pain" ? "bg-red-500/10 text-red-400 shadow-xl" : "text-zinc-500 hover:text-zinc-300"}`}
+                  >
+                    <span>🍋</span> Pain Points
+                  </button>
+                  <button
+                    onClick={() => setMoodFilter("love")}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${moodFilter === "love" ? "bg-green-500/10 text-green-400 shadow-xl" : "text-zinc-500 hover:text-zinc-300"}`}
+                  >
+                    <span>🍊</span> Love Letters
+                  </button>
+                </div>
+
                 {/* Reviews Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {analysisData.reviews?.map((review: any, idx: number) => (
-                    <motion.div
-                      key={`${review.id}-${idx}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: (idx % 10) * 0.05 }}
-                      className="group relative p-6 rounded-2xl glass border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all"
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex gap-0.5">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-3.5 h-3.5 ${i < review.rating ? "text-orange-400 fill-current" : "text-zinc-800"
-                                }`}
-                            />
-                          ))}
+                  {analysisData.reviews
+                    ?.filter((r: any) => {
+                      if (moodFilter === "pain") return r.rating <= 2;
+                      if (moodFilter === "love") return r.rating >= 4;
+                      return true;
+                    })
+                    .map((review: any, idx: number) => (
+                      <motion.div
+                        key={`${review.id}-${idx}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: (idx % 10) * 0.05 }}
+                        className="group relative p-6 rounded-2xl glass border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all"
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex gap-0.5">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-3.5 h-3.5 ${i < review.rating ? "text-orange-400 fill-current" : "text-zinc-800"
+                                  }`}
+                              />
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => copyToClipboard(`[${review.rating}/5] ${review.title}: ${review.content}`, review.id + idx)}
+                            className="p-2 rounded-lg bg-white/0 group-hover:bg-white/5 text-zinc-600 group-hover:text-zinc-400 transition-all hover:text-white"
+                          >
+                            {copiedId === review.id + idx ? (
+                              <Check className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </button>
                         </div>
-                        <button
-                          onClick={() => copyToClipboard(`[${review.rating}/5] ${review.title}: ${review.content}`, review.id + idx)}
-                          className="p-2 rounded-lg bg-white/0 group-hover:bg-white/5 text-zinc-600 group-hover:text-zinc-400 transition-all hover:text-white"
-                        >
-                          {copiedId === review.id + idx ? (
-                            <Check className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
 
-                      <h3 className="font-bold text-zinc-100 mb-2 leading-tight">
-                        {review.title}
-                      </h3>
-                      <p className="text-sm text-zinc-400 leading-relaxed line-clamp-4 group-hover:line-clamp-none transition-all">
-                        {review.content}
-                      </p>
+                        <h3 className="font-bold text-zinc-100 mb-2 leading-tight">
+                          {review.title}
+                        </h3>
+                        <p className="text-sm text-zinc-400 leading-relaxed line-clamp-4 group-hover:line-clamp-none transition-all">
+                          {review.content}
+                        </p>
 
-                      <div className="mt-4 pt-4 border-t border-white/[0.05] flex items-center justify-between text-[10px] uppercase tracking-widest font-bold text-zinc-600">
-                        <span>{review.author}</span>
-                        <span>{new Date(review.date).toLocaleDateString()}</span>
-                      </div>
-                    </motion.div>
-                  ))}
+                        <div className="mt-4 pt-4 border-t border-white/[0.05] flex items-center justify-between text-[10px] uppercase tracking-widest font-bold text-zinc-600">
+                          <span>{review.author}</span>
+                          <span>{new Date(review.date).toLocaleDateString()}</span>
+                        </div>
+                      </motion.div>
+                    ))}
                 </div>
 
                 {/* Load More Button */}
