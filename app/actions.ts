@@ -1,16 +1,9 @@
 "use server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { jsonrepair } from "jsonrepair";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
 
-// Helper pour extraire le JSON proprement
-function extractJSON(text: string) {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("No JSON found in response");
-  return match[0];
-}
 
 export async function analyzeApp(url: string, country: string = "us", page: number = 1) {
   if (!url) throw new Error("URL manquante");
@@ -34,7 +27,7 @@ export async function analyzeApp(url: string, country: string = "us", page: numb
     );
     const reviewsData = await reviewsRes.json();
     const pageEntries = reviewsData?.feed?.entry ?? [];
-    
+
     // Le premier élément du flux RSS est souvent l'info de l'app, pas une review
     const actualReviews = page === 1 ? pageEntries.slice(1) : pageEntries;
 

@@ -13,6 +13,9 @@ export default function Home() {
   const [country, setCountry] = useState("us");
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [selectedPages, setSelectedPages] = useState<number[]>([]);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isCopyingAll, setIsCopyingAll] = useState(false);
 
@@ -92,6 +95,37 @@ export default function Home() {
       setError(`Erreur lors du chargement de la page ${pageNum}.`);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const togglePageSelection = (p: number) => {
+    setSelectedPages(prev =>
+      prev.includes(p) ? prev.filter(page => page !== p) : [...prev, p].sort((a, b) => a - b)
+    );
+  };
+
+  const bulkExport = async () => {
+    if (!url || selectedPages.length === 0) return;
+    setIsBulkLoading(true);
+
+    try {
+      const allResults = await Promise.all(
+        selectedPages.map(p => analyzeApp(url, country, p))
+      );
+
+      const allReviews = allResults.flatMap(res => res.reviews || []);
+      const formattedReviews = allReviews
+        .map((r: any) => `--- \nRating: ${r.rating}/5\nTitle: ${r.title}\nContent: ${r.content}\n---`)
+        .join("\n\n");
+
+      await navigator.clipboard.writeText(formattedReviews);
+      setIsCopyingAll(true);
+      setTimeout(() => setIsCopyingAll(false), 2000);
+      setShowBulkModal(false);
+    } catch (err: any) {
+      setError("Erreur lors de l'exportation massive.");
+    } finally {
+      setIsBulkLoading(false);
     }
   };
 
@@ -238,19 +272,25 @@ export default function Home() {
                 <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2 text-center">Page</p>
                 {[...Array(10)].map((_, i) => {
                   const p = i + 1;
+                  const isSelected = selectedPages.includes(p);
                   return (
-                    <button
-                      key={p}
-                      onClick={() => jumpToPage(p)}
-                      className={`
-                        w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all
-                        ${currentPage === p
-                          ? "pulp-gradient text-black shadow-lg shadow-orange-500/20 scale-110"
-                          : "glass text-zinc-500 hover:text-zinc-200 hover:bg-white/10"}
-                      `}
-                    >
-                      {p}
-                    </button>
+                    <div key={p} className="flex items-center gap-2">
+                      <button
+                        onClick={() => jumpToPage(p)}
+                        className={`
+                          w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all
+                          ${currentPage === p 
+                            ? "pulp-gradient text-black shadow-lg shadow-orange-500/20 scale-110" 
+                            : "glass text-zinc-500 hover:text-zinc-200 hover:bg-white/10"}
+                        `}
+                      >
+                        {p}
+                      </button>
+                      <button 
+                        onClick={() => togglePageSelection(p)}
+                        className={`w-3 h-3 rounded-full border transition-all ${isSelected ? "bg-orange-500 border-orange-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" : "border-zinc-700 hover:border-zinc-500"}`}
+                      />
+                    </div>
                   );
                 })}
               </div>
@@ -280,22 +320,37 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={copyAllReviews}
-                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-bold text-sm hover:bg-white/10 hover:text-white transition-all active:scale-95"
-                  >
-                    {isCopyingAll ? (
-                      <>
-                        <Check className="w-4 h-4 text-green-500" />
-                        All Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        Copy All Reviews ({analysisData.reviews?.length})
-                      </>
-                    )}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowBulkModal(true)}
+                      className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl glass border-white/10 text-zinc-400 font-bold text-sm hover:bg-white/10 hover:text-white transition-all active:scale-95"
+                    >
+                      <Database className="w-4 h-4" />
+                      Bulk Export
+                      {selectedPages.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded-md bg-orange-500 text-black text-[10px]">
+                          {selectedPages.length}
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={copyAllReviews}
+                      className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-bold text-sm hover:bg-white/10 hover:text-white transition-all active:scale-95"
+                    >
+                      {isCopyingAll ? (
+                        <>
+                          <Check className="w-4 h-4 text-green-500" />
+                          All Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          Copy All ({analysisData.reviews?.length})
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Reviews Grid */}
@@ -405,6 +460,74 @@ export default function Home() {
           </motion.div>
         )}
       </main>
+
+      {/* Bulk Export Modal */}
+      <AnimatePresence>
+        {showBulkModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowBulkModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md p-8 rounded-3xl glass border-white/10 bg-zinc-900 shadow-2xl"
+            >
+              <h2 className="text-2xl font-bold text-zinc-100 mb-2">Bulk Export</h2>
+              <p className="text-zinc-500 text-sm mb-8">Select the pages you want to export. Each page contains 50 reviews.</p>
+              
+              <div className="grid grid-cols-5 gap-3 mb-8">
+                {[...Array(10)].map((_, i) => {
+                  const p = i + 1;
+                  const isSelected = selectedPages.includes(p);
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => togglePageSelection(p)}
+                      className={`
+                        h-12 rounded-xl flex items-center justify-center font-bold transition-all
+                        ${isSelected 
+                          ? "pulp-gradient text-black scale-105" 
+                          : "bg-white/5 text-zinc-500 hover:bg-white/10 hover:text-zinc-200"}
+                      `}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBulkModal(false)}
+                  className="flex-1 px-6 py-4 rounded-2xl glass border-white/5 text-zinc-500 font-bold hover:text-zinc-300 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={bulkExport}
+                  disabled={selectedPages.length === 0 || isBulkLoading}
+                  className="flex-[2] pulp-gradient px-6 py-4 rounded-2xl text-black font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isBulkLoading ? (
+                    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy {selectedPages.length * 50} Reviews
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <footer className="mt-auto py-12 text-zinc-600 text-sm">
         &copy; 2026 Pulp. All rights reserved.
