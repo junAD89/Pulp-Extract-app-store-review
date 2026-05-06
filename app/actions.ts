@@ -45,49 +45,14 @@ export async function analyzeApp(url: string, country: string = "us") {
       .map((r: any) => `[${r["im:rating"]?.label}★] ${r.title?.label}: ${r.content?.label}`)
       .join("\n");
 
-    // 4. Configuration et Appel Gemini (Modèle : gemini-2.0-flash)
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash", 
-    });
-
-    const prompt = `
-      You are an expert app store analyst.
-      TASK: Analyze the following user reviews for the app "${appInfo.trackName}" and provide a deep dive analysis.
-      
-      RULES:
-      - Be CONCISE and educational.
-      - Return ONLY valid JSON.
-      - Use double line breaks \\n\\n for readability in the text.
-
-      REVIEWS TO ANALYZE:
-      ${reviewsText}
-
-      RESPONSE FORMAT (JSON ONLY):
-      {
-        "topInsight": "A single, punchy sentence summarizing the most important takeaway.",
-        "sentimentScore": 85,
-        "pros": ["Point fort 1", "Point fort 2", "Point fort 3"],
-        "cons": ["Point faible 1", "Point faible 2", "Point faible 3"],
-        "recommendation": "Short priority recommendation for the developers."
-      }
-    `;
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.3,
-        maxOutputTokens: 8024,
-      },
-    });
-
-    const response = await result.response;
-    const textContent = response.text().trim();
-
-    // 5. Extraction et Réparation du JSON
-    const extracted = extractJSON(textContent);
-    const repairedJson = jsonrepair(extracted);
-    const aiAnalysis = JSON.parse(repairedJson);
+    const reviews = allReviews.map((r: any) => ({
+      id: r.id?.label,
+      rating: parseInt(r["im:rating"]?.label || "0"),
+      title: r.title?.label,
+      content: r.content?.label,
+      author: r.author?.name?.label,
+      date: r.updated?.label
+    }));
 
     return {
       name: appInfo.trackName,
@@ -95,7 +60,7 @@ export async function analyzeApp(url: string, country: string = "us") {
       icon: appInfo.artworkUrl100,
       rating: appInfo.averageUserRating,
       reviewsCount: appInfo.userRatingCount,
-      ...aiAnalysis
+      reviews: reviews
     };
 
   } catch (error: any) {

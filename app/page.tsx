@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Sparkles, ArrowRight, Zap, Database, BarChart3, CheckCircle2, XCircle, Lightbulb } from "lucide-react";
+import { Search, Sparkles, ArrowRight, Zap, Database, BarChart3, CheckCircle2, XCircle, Lightbulb, Copy, Check, Star } from "lucide-react";
 import { analyzeApp } from "./actions";
 
 export default function Home() {
@@ -11,12 +11,32 @@ export default function Home() {
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [country, setCountry] = useState("us");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isCopyingAll, setIsCopyingAll] = useState(false);
 
   const countries = [
     { code: "us", label: "🇺🇸 US" },
     { code: "ca", label: "🇨🇦 CA" },
     { code: "gb", label: "🇬🇧 UK" },
   ];
+
+  const copyToClipboard = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const copyAllReviews = async () => {
+    if (!analysisData?.reviews) return;
+    
+    const formattedReviews = analysisData.reviews
+      .map((r: any) => `--- \nRating: ${r.rating}/5\nTitle: ${r.title}\nContent: ${r.content}\n---`)
+      .join("\n\n");
+    
+    await navigator.clipboard.writeText(formattedReviews);
+    setIsCopyingAll(true);
+    setTimeout(() => setIsCopyingAll(false), 2000);
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,81 +202,97 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {/* Real Analysis Result */}
-        <AnimatePresence>
+        {/* Analysis Result - Reviews List */}
+        <AnimatePresence mode="wait">
           {analysisData && !isAnalyzing && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-12 w-full max-w-2xl p-6 rounded-2xl glass border-orange-500/20 bg-orange-500/5 text-left"
+              className="mt-12 w-full max-w-4xl text-left"
             >
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-white/10 overflow-hidden flex items-center justify-center text-2xl">
-                    {analysisData.icon ? (
-                      <img src={analysisData.icon} alt={analysisData.name} className="w-full h-full object-cover" />
-                    ) : (
-                      "🍎"
-                    )}
+              {/* App Info Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 p-6 rounded-2xl glass border-white/5 bg-white/[0.02]">
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 rounded-2xl bg-zinc-800 border border-white/10 overflow-hidden shadow-2xl flex-shrink-0">
+                    <img src={analysisData.icon} alt={analysisData.name} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg text-zinc-100">{analysisData.name}</h3>
-                    <p className="text-sm text-zinc-500">{analysisData.developer}</p>
+                    <h2 className="text-2xl font-bold text-zinc-100">{analysisData.name}</h2>
+                    <p className="text-zinc-500 font-medium">{analysisData.developer}</p>
+                    <div className="flex items-center gap-4 mt-2">
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-orange-500/10 text-orange-400 text-xs font-bold">
+                        <Star className="w-3 h-3 fill-current" />
+                        {analysisData.rating?.toFixed(1)}
+                      </div>
+                      <span className="text-zinc-600 text-xs">•</span>
+                      <span className="text-zinc-500 text-xs font-medium">{analysisData.reviews?.length || 0} reviews fetched</span>
+                    </div>
                   </div>
                 </div>
-                <div className="px-3 py-1 rounded-full bg-green-500/10 text-green-500 text-xs font-bold uppercase tracking-wider">
-                  Success
-                </div>
+
+                <button
+                  onClick={copyAllReviews}
+                  className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-bold text-sm hover:bg-white/10 hover:text-white transition-all active:scale-95"
+                >
+                  {isCopyingAll ? (
+                    <>
+                      <Check className="w-4 h-4 text-green-500" />
+                      All Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy All Reviews
+                    </>
+                  )}
+                </button>
               </div>
 
-              <div className="space-y-6">
-                <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-4 h-4 text-orange-400" />
-                    <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Gemini Insight</span>
-                  </div>
-                  <p className="text-sm text-zinc-200 leading-relaxed italic">"{analysisData.topInsight}"</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <span className="text-[10px] font-bold text-green-500/70 uppercase tracking-widest pl-1">Strengths</span>
-                    {analysisData.pros?.map((pro: string, i: number) => (
-                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-green-500/5 border border-green-500/10 text-xs text-zinc-300">
-                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                        {pro}
+              {/* Reviews Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {analysisData.reviews?.map((review: any) => (
+                  <motion.div
+                    key={review.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="group relative p-6 rounded-2xl glass border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex gap-0.5">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3.5 h-3.5 ${
+                              i < review.rating ? "text-orange-400 fill-current" : "text-zinc-800"
+                            }`}
+                          />
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <div className="space-y-3">
-                    <span className="text-[10px] font-bold text-red-500/70 uppercase tracking-widest pl-1">Weaknesses</span>
-                    {analysisData.cons?.map((con: string, i: number) => (
-                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/10 text-xs text-zinc-300">
-                        <XCircle className="w-4 h-4 text-red-500 shrink-0" />
-                        {con}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                      <button
+                        onClick={() => copyToClipboard(`[${review.rating}/5] ${review.title}: ${review.content}`, review.id)}
+                        className="p-2 rounded-lg bg-white/0 group-hover:bg-white/5 text-zinc-600 group-hover:text-zinc-400 transition-all hover:text-white"
+                      >
+                        {copiedId === review.id ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
 
-                <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Lightbulb className="w-4 h-4 text-orange-400" />
-                    <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Recommendation</span>
-                  </div>
-                  <p className="text-sm text-zinc-300">{analysisData.recommendation}</p>
-                </div>
+                    <h3 className="font-bold text-zinc-100 mb-2 leading-tight">
+                      {review.title}
+                    </h3>
+                    <p className="text-sm text-zinc-400 leading-relaxed line-clamp-4 group-hover:line-clamp-none transition-all">
+                      {review.content}
+                    </p>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                    <span className="text-xs font-bold text-zinc-500 uppercase">AI Sentiment</span>
-                    <p className="text-lg font-bold text-orange-400 mt-1">{analysisData.sentimentScore}% Positive</p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                    <span className="text-xs font-bold text-zinc-500 uppercase">Avg. Rating</span>
-                    <p className="text-lg font-bold text-zinc-100 mt-1">{analysisData.rating} ★</p>
-                  </div>
-                </div>
+                    <div className="mt-4 pt-4 border-t border-white/[0.05] flex items-center justify-between text-[10px] uppercase tracking-widest font-bold text-zinc-600">
+                      <span>{review.author}</span>
+                      <span>{new Date(review.date).toLocaleDateString()}</span>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </motion.div>
           )}
