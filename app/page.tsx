@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Sparkles, ArrowRight, Zap, Database, BarChart3 } from "lucide-react";
+import { Search, Sparkles, ArrowRight, Zap, Database, BarChart3, CheckCircle2, XCircle, Lightbulb } from "lucide-react";
+import { analyzeAppReviews } from "./actions";
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -13,7 +14,7 @@ export default function Home() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url) return;
-    
+
     setIsAnalyzing(true);
     setError(null);
     setAnalysisData(null);
@@ -33,18 +34,26 @@ export default function Home() {
 
       if (!appInfo) throw new Error("Impossible de trouver les informations de l'application.");
 
-      // 3. Fetch les reviews iTunes API
-      const reviewsRes = await fetch(
-        `https://itunes.apple.com/us/rss/customerreviews/id=${appId}/sortBy=mostRecent/json`
-      );
-      const reviewsData = await reviewsRes.json();
-      const reviews = reviewsData?.feed?.entry ?? [];
+      // 3. Fetch les reviews iTunes API (On en prend 100 pour Gemini)
+      let allReviews: any[] = [];
+      for (let page = 1; page <= 2; page++) {
+        const reviewsRes = await fetch(
+          `https://itunes.apple.com/us/rss/customerreviews/page=${page}/id=${appId}/sortBy=mostRecent/json`
+        );
+        const reviewsData = await reviewsRes.json();
+        const pageEntries = reviewsData?.feed?.entry ?? [];
+        const actualReviews = page === 1 ? pageEntries.slice(1) : pageEntries;
+        allReviews = [...allReviews, ...actualReviews];
+        if (pageEntries.length < 50) break;
+      }
 
-      // 4. Formater les reviews
-      const reviewsText = reviews
-        .slice(1) // le premier entry est l'app elle-même
+      // 4. Formater les reviews pour Gemini
+      const reviewsText = allReviews
         .map((r: any) => `[${r["im:rating"]?.label}★] ${r.title?.label}: ${r.content?.label}`)
         .join("\n");
+
+      // 5. Appel à Gemini via Server Action
+      const aiAnalysis = await analyzeAppReviews(reviewsText, appInfo.trackName);
 
       // Set the real data
       setAnalysisData({
@@ -53,9 +62,7 @@ export default function Home() {
         icon: appInfo.artworkUrl100,
         rating: appInfo.averageUserRating,
         reviewsCount: appInfo.userRatingCount,
-        topInsight: reviews.length > 1 
-          ? `Analysis of ${reviews.length - 1} recent reviews suggests high engagement with a focus on "${reviews[1]?.title?.label || 'performance'}".`
-          : "No recent reviews found to analyze."
+        ...aiAnalysis // merge Gemini results (topInsight, pros, cons, sentimentScore, recommendation)
       });
     } catch (err: any) {
       setError(err.message || "Une erreur est survenue lors de l'analyse.");
@@ -213,20 +220,53 @@ export default function Home() {
                   Success
                 </div>
               </div>
-              
-              <div className="space-y-4">
-                <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                  <span className="text-xs font-bold text-zinc-500 uppercase">Top Insight</span>
-                  <p className="text-sm text-zinc-300 mt-1">{analysisData.topInsight}</p>
+
+              <div className="space-y-6">
+                <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-orange-400" />
+                    <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Gemini Insight</span>
+                  </div>
+                  <p className="text-sm text-zinc-200 leading-relaxed italic">"{analysisData.topInsight}"</p>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-bold text-green-500/70 uppercase tracking-widest pl-1">Strengths</span>
+                    {analysisData.pros?.map((pro: string, i: number) => (
+                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-green-500/5 border border-green-500/10 text-xs text-zinc-300">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                        {pro}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-bold text-red-500/70 uppercase tracking-widest pl-1">Weaknesses</span>
+                    {analysisData.cons?.map((con: string, i: number) => (
+                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/10 text-xs text-zinc-300">
+                        <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                        {con}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Lightbulb className="w-4 h-4 text-orange-400" />
+                    <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Recommendation</span>
+                  </div>
+                  <p className="text-sm text-zinc-300">{analysisData.recommendation}</p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                    <span className="text-xs font-bold text-zinc-500 uppercase">Sentiment Score</span>
-                    <p className="text-lg font-bold text-orange-400 mt-1">~{(analysisData.rating * 20).toFixed(0)}% Positive</p>
+                    <span className="text-xs font-bold text-zinc-500 uppercase">AI Sentiment</span>
+                    <p className="text-lg font-bold text-orange-400 mt-1">{analysisData.sentimentScore}% Positive</p>
                   </div>
                   <div className="p-3 rounded-xl bg-white/5 border border-white/5">
                     <span className="text-xs font-bold text-zinc-500 uppercase">Avg. Rating</span>
-                    <p className="text-lg font-bold text-zinc-100 mt-1">{analysisData.rating} ★ ({analysisData.reviewsCount.toLocaleString()})</p>
+                    <p className="text-lg font-bold text-zinc-100 mt-1">{analysisData.rating} ★</p>
                   </div>
                 </div>
               </div>
