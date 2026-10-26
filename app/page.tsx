@@ -182,14 +182,7 @@ export default function Home() {
           </div>
           <span className="text-xl font-bold tracking-tight">pulp</span>
         </div>
-        <div className="hidden sm:flex items-center gap-8 text-sm font-medium text-zinc-400">
-          <a href="#" className="hover:text-white transition-colors">Features</a>
-          <a href="#" className="hover:text-white transition-colors">Enterprise</a>
-          <a href="#" className="hover:text-white transition-colors">Changelog</a>
-        </div>
-        <button className="px-5 py-2 rounded-full glass text-sm font-medium hover:bg-white/5 transition-colors">
-          Sign In
-        </button>
+      
       </nav>
 
       {/* Hero Section */}
