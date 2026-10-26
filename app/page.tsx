@@ -26,6 +26,7 @@ export default function Home() {
     { code: "us", label: "🇺🇸 US" },
     { code: "ca", label: "🇨🇦 CA" },
     { code: "gb", label: "🇬🇧 UK" },
+    { code: "fr", label: "🇫🇷 France" },
   ];
 
   const copyToClipboard = async (text: string, id: string) => {
